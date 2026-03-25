@@ -1,0 +1,62 @@
+name: Tests/AutoUpdate
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-test-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Restore
+      run: dotnet restore
+
+    - name: Build
+      run: dotnet build --no-restore
+
+    - name: Test
+      run: dotnet test --no-build
+
+    - name: Publish
+      run: |
+        dotnet publish ASP_API/ASP_API.csproj \
+          -c Release \
+          -r linux-x64 \
+          -o ./publish
+    
+    - name: Deploy to VDS
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.VDS_HOST }}
+        username: ${{ secrets.VDS_USER }}
+        key: ${{ secrets.VDS_SSH_KEY }}
+        source: "./publish/*"
+        target: "/var/www/GmodServerWebPanel"
+        strip_components: 1
+    
+    - name: Restart application
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.VDS_HOST }}
+        username: ${{ secrets.VDS_USER }}
+        key: ${{ secrets.VDS_SSH_KEY }}
+        script: |
+          # Останавливаем старое приложение
+          sudo systemctl stop GmodServerWebPanel || true
+          
+          # Копируем новые файлы
+          sudo cp -r /var/www/GmodServerWebPanel_temp /var/www/GmodServerWebPanel
+          sudo rm -rf /var/www/GmodServerWebPanel_temp
+          
+          # Запускаем приложение
+          sudo systemctl start GmodServerWebPanel
+          sudo systemctl status GmodServerWebPanel
