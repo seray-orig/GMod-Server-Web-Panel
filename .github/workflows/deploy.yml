@@ -5,35 +5,51 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build-test-deploy:
+  asp-api-tests:
     runs-on: ubuntu-latest
-
+    
     steps:
-    - name: Checkout
+    - name: Клонируем репозиторий
       uses: actions/checkout@v3
 
-    - name: Setup .NET
+    - name: Установка .NET
       uses: actions/setup-dotnet@v3
       with:
         dotnet-version: 10.0.x
 
-    - name: Restore
+    - name: Скачивание приблуд
       run: dotnet restore
 
-    - name: Build
-      run: dotnet build --no-restore
-
-    - name: Test
+    - name: Виновник торжества
       run: dotnet test --no-build
 
-    - name: Publish
+  build-api-deploy:
+    runs-on: ubuntu-latest
+    needs: api-tests
+
+    steps:
+    - name: Клонируем репозиторий
+      uses: actions/checkout@v3
+
+    - name: Установка .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Скачивание приблуд
+      run: dotnet restore
+
+    - name: Стройка
+      run: dotnet build --no-restore
+
+    - name: Стройка полноценная
       run: |
-        dotnet publish ASP_API/ASP_API.csproj \
+        dotnet publish GMServerWebPanel.API/GMServerWebPanel.API.csproj \
           -c Release \
           -r linux-x64 \
           -o ./publish
     
-    - name: Deploy to VDS
+    - name: Выкладка на VDS
       uses: appleboy/scp-action@v0.1.4
       with:
         host: ${{ secrets.VDS_HOST }}
@@ -42,6 +58,7 @@ jobs:
         source: "./publish/*"
         target: "/var/www/GmodServerWebPanel"
         strip_components: 1
+        overwrite: true
     
     - name: Restart application
       uses: appleboy/ssh-action@v0.1.5
@@ -50,13 +67,38 @@ jobs:
         username: ${{ secrets.VDS_USER }}
         key: ${{ secrets.VDS_SSH_KEY }}
         script: |
-          # Останавливаем старое приложение
-          sudo systemctl stop GmodServerWebPanel || true
-          
-          # Копируем новые файлы
-          sudo cp -r /var/www/GmodServerWebPanel_temp /var/www/GmodServerWebPanel
-          sudo rm -rf /var/www/GmodServerWebPanel_temp
-          
           # Запускаем приложение
-          sudo systemctl start GmodServerWebPanel
-          sudo systemctl status GmodServerWebPanel
+          sudo systemctl restart GmodServerWebPanel
+          sudo systemctl restart nginx
+
+  build-react-deploy:
+    runs-on: ubuntu-latest
+    needs: api-tests
+
+    steps:
+    - name: Клонируем репозиторий
+      uses: actions/checkout@v3
+
+    - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+    - name: Install dependencies
+      run: npm install
+      working-directory: ./GMServerWebPanel.React
+
+    - name: Build React app
+      run: npm run build
+      working-directory: ./GMServerWebPanel.React
+
+    - name: Выкладка на VDS
+      uses: appleboy/scp-action@v0.1.4
+      with:
+        host: ${{ secrets.VDS_HOST }}
+        username: ${{ secrets.VDS_USER }}
+        key: ${{ secrets.VDS_SSH_KEY }}
+        source: "./GMServerWebPanel.React/dist/*"
+        target: "/var/www/GMServerWebPanel/wwwroot"
+        strip_components: 2
+        overwrite: true

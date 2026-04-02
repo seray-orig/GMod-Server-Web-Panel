@@ -1,4 +1,4 @@
 <Solution>
-  <Project Path="ASP_API.Tests/ASP_API.Tests.csproj" />
-  <Project Path="ASP_API/ASP_API.csproj" />
+  <Project Path="GMServerWebPanel.API.Tests/GMServerWebPanel.API.Tests.csproj" />
+  <Project Path="GMServerWebPanel.API/GMServerWebPanel.API.csproj" />
 </Solution>

@@ -19,7 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ASP_API\GMServerWebPanel.API.csproj" />
+    <ProjectReference Include="..\GMServerWebPanel.API\GMServerWebPanel.API.csproj" />
   </ItemGroup>
 
 </Project>
