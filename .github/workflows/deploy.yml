@@ -21,7 +21,7 @@ jobs:
       run: dotnet restore
 
     - name: Виновник торжества
-      run: dotnet test --no-build
+      run: dotnet test
 
   build-api-deploy:
     runs-on: ubuntu-latest
