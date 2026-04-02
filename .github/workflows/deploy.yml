@@ -1,4 +1,4 @@
-name: Tests/AutoUpdate
+name: Tests/BuildAndDeployToVDS
 
 on:
   push:
@@ -99,6 +99,6 @@ jobs:
         username: ${{ secrets.VDS_USER }}
         key: ${{ secrets.VDS_SSH_KEY }}
         source: "./GMServerWebPanel.React/dist/*"
-        target: "/var/www/GMServerWebPanel/wwwroot"
+        target: "/var/www/GmodServerWebPanel/wwwroot"
         strip_components: 2
         overwrite: true
