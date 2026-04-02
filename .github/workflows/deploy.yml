@@ -25,7 +25,7 @@ jobs:
 
   build-api-deploy:
     runs-on: ubuntu-latest
-    needs: api-tests
+    needs: asp-api-tests
 
     steps:
     - name: Клонируем репозиторий
@@ -73,7 +73,7 @@ jobs:
 
   build-react-deploy:
     runs-on: ubuntu-latest
-    needs: api-tests
+    needs: asp-api-tests
 
     steps:
     - name: Клонируем репозиторий
