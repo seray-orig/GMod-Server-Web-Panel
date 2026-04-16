@@ -5,7 +5,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  asp-api-tests:
+  asp-api_unit-tests:
     runs-on: ubuntu-latest
     
     steps:
@@ -21,11 +21,30 @@ jobs:
       run: dotnet restore
 
     - name: Виновник торжества
-      run: dotnet test
+      run: dotnet test GMServerWebPanel.API.UnitTests
+
+    asp-api_integration-tests:
+      runs-on: ubuntu-latest
+      needs: asp-api_unit-tests
+    
+    steps:
+    - name: Клонируем репозиторий
+      uses: actions/checkout@v4
+
+    - name: Установка .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 10.0.x
+
+    - name: Скачивание приблуд
+      run: dotnet restore
+
+    - name: Виновник торжества
+      run: dotnet test GMServerWebPanel.API.IntegrationTests
 
   build-api-deploy:
     runs-on: ubuntu-latest
-    needs: asp-api-tests
+    needs: [asp-api_unit-tests, asp-api_integration-tests]
 
     steps:
     - name: Клонируем репозиторий
@@ -47,9 +66,10 @@ jobs:
         dotnet publish GMServerWebPanel.API/GMServerWebPanel.API.csproj \
           -c Release \
           -r linux-x64 \
-          -o ./publish
+          -o ./publish \
+          -sc
 
-    - name: Выключаем сервис
+    - name: Выключаем сервис, очищаем папку проекта
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.VDS_HOST }}
@@ -57,6 +77,10 @@ jobs:
         key: ${{ secrets.VDS_SSH_KEY }}
         script: |
           sudo systemctl stop GmodServerWebPanel || true
+          cd /var/www/GmodServerWebPanel
+          shopt -s extglob
+          # Удаляем всё, кроме фронта, он загружается отдельно.
+          rm -rf !(wwwroot)
     
     - name: Выкладка на VDS
       uses: appleboy/scp-action@v0.1.4
@@ -82,7 +106,7 @@ jobs:
 
   build-react-deploy:
     runs-on: ubuntu-latest
-    needs: asp-api-tests
+    needs: [asp-api_unit-tests, asp-api_integration-tests]
 
     steps:
     - name: Клонируем репозиторий
@@ -100,6 +124,15 @@ jobs:
     - name: Build React app
       run: npm run build
       working-directory: ./GMServerWebPanel.React
+
+    - name: Удаление старого содержимого wwwroot
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VDS_HOST }}
+        username: ${{ secrets.VDS_USER }}
+        key: ${{ secrets.VDS_SSH_KEY }}
+        script: |
+          rm -rf /var/www/GmodServerWebPanel/wwwroot/*
 
     - name: Выкладка на VDS
       uses: appleboy/scp-action@v0.1.4

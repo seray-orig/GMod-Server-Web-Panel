@@ -1,4 +1,5 @@
 <Solution>
-  <Project Path="GMServerWebPanel.API.Tests/GMServerWebPanel.API.Tests.csproj" />
+  <Project Path="GMServerWebPanel.API.IntegrationTests/GMServerWebPanel.API.IntegrationTests.csproj" />
+  <Project Path="GMServerWebPanel.API.UnitTests/GMServerWebPanel.API.UnitTests.csproj" Id="15b761f0-3deb-4348-8182-90320d015a7a" />
   <Project Path="GMServerWebPanel.API/GMServerWebPanel.API.csproj" />
 </Solution>
