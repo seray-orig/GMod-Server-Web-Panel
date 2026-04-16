@@ -10,10 +10,10 @@ jobs:
     
     steps:
     - name: Клонируем репозиторий
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Установка .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: 10.0.x
 
@@ -29,10 +29,10 @@ jobs:
     
     steps:
     - name: Клонируем репозиторий
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Установка .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: 10.0.x
 
@@ -48,10 +48,10 @@ jobs:
 
     steps:
     - name: Клонируем репозиторий
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Установка .NET
-      uses: actions/setup-dotnet@v4
+      uses: actions/setup-dotnet@v5
       with:
         dotnet-version: 10.0.x
 
@@ -67,7 +67,7 @@ jobs:
           -c Release \
           -r linux-x64 \
           -o ./publish \
-          -sc
+          --self-contained true
 
     - name: Выключаем сервис, очищаем папку проекта
       uses: appleboy/ssh-action@v1.0.3
@@ -110,10 +110,10 @@ jobs:
 
     steps:
     - name: Клонируем репозиторий
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Setup Node
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v5
       with:
         node-version: '24.x'
 
