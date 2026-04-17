@@ -42,9 +42,25 @@ jobs:
     - name: Виновник торжества
       run: dotnet test GMServerWebPanel.API.IntegrationTests
 
-  build-api-deploy:
+  shared-folder:
     runs-on: ubuntu-latest
     needs: [asp-api_unit-tests, asp-api_integration-tests]
+
+    steps:
+    - name: Создание общих папок
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VDS_HOST }}
+        username: ${{ secrets.VDS_USER }}
+        key: ${{ secrets.VDS_SSH_KEY }}
+        script: |
+          mkdir /var/www/GMServerWebPanel
+          mkdir /var/www/GMServerWebPanel/api
+          mkdir /var/www/GMServerWebPanel/frontend
+
+  build-api-deploy:
+    runs-on: ubuntu-latest
+    needs: [asp-api_unit-tests, asp-api_integration-tests, shared-folder]
 
     steps:
     - name: Клонируем репозиторий
@@ -76,11 +92,8 @@ jobs:
         username: ${{ secrets.VDS_USER }}
         key: ${{ secrets.VDS_SSH_KEY }}
         script: |
-          sudo systemctl stop GmodServerWebPanel || true
-          cd /var/www/GmodServerWebPanel
-          shopt -s extglob
-          # Удаляем всё, кроме фронта, он загружается отдельно.
-          rm -rf !(wwwroot)
+          sudo systemctl stop GMServerWebPanel || true
+          rm -rf /var/www/GMServerWebPanel/api/*
     
     - name: Выкладка на VDS
       uses: appleboy/scp-action@v0.1.4
@@ -89,24 +102,13 @@ jobs:
         username: ${{ secrets.VDS_USER }}
         key: ${{ secrets.VDS_SSH_KEY }}
         source: "./publish/*"
-        target: "/var/www/GmodServerWebPanel"
+        target: "/var/www/GMServerWebPanel/api"
         strip_components: 1
         overwrite: true
-    
-    - name: Restart application
-      uses: appleboy/ssh-action@v0.1.5
-      with:
-        host: ${{ secrets.VDS_HOST }}
-        username: ${{ secrets.VDS_USER }}
-        key: ${{ secrets.VDS_SSH_KEY }}
-        script: |
-          # Запускаем приложение
-          sudo systemctl start GmodServerWebPanel
-          sudo systemctl restart nginx
 
   build-react-deploy:
     runs-on: ubuntu-latest
-    needs: [asp-api_unit-tests, asp-api_integration-tests]
+    needs: [asp-api_unit-tests, asp-api_integration-tests, shared-folder]
 
     steps:
     - name: Клонируем репозиторий
@@ -125,14 +127,14 @@ jobs:
       run: npm run build
       working-directory: ./GMServerWebPanel.React
 
-    - name: Удаление старого содержимого wwwroot
+    - name: Удаление старого содержимого
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.VDS_HOST }}
         username: ${{ secrets.VDS_USER }}
         key: ${{ secrets.VDS_SSH_KEY }}
         script: |
-          rm -rf /var/www/GmodServerWebPanel/wwwroot/*
+          rm -rf /var/www/GMServerWebPanel/fronend/*
 
     - name: Выкладка на VDS
       uses: appleboy/scp-action@v0.1.4
@@ -141,6 +143,21 @@ jobs:
         username: ${{ secrets.VDS_USER }}
         key: ${{ secrets.VDS_SSH_KEY }}
         source: "./GMServerWebPanel.React/dist/*"
-        target: "/var/www/GmodServerWebPanel/wwwroot"
+        target: "/var/www/GMServerWebPanel/fronend"
         strip_components: 2
         overwrite: true
+
+  start-services:
+    runs-on: ubuntu-latest
+    needs: [build-api-deploy, build-react-deploy]
+
+    steps:
+    - name: Запуск сервисов
+      uses: appleboy/ssh-action@v0.1.5
+      with:
+        host: ${{ secrets.VDS_HOST }}
+        username: ${{ secrets.VDS_USER }}
+        key: ${{ secrets.VDS_SSH_KEY }}
+        script: |
+          sudo systemctl start GMServerWebPanel
+          sudo systemctl restart nginx
