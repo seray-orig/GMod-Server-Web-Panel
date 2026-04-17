@@ -134,7 +134,7 @@ jobs:
         username: ${{ secrets.VDS_USER }}
         key: ${{ secrets.VDS_SSH_KEY }}
         script: |
-          rm -rf /var/www/GMServerWebPanel/fronend/*
+          rm -rf /var/www/GMServerWebPanel/frontend/*
 
     - name: Выкладка на VDS
       uses: appleboy/scp-action@v0.1.4
@@ -143,7 +143,7 @@ jobs:
         username: ${{ secrets.VDS_USER }}
         key: ${{ secrets.VDS_SSH_KEY }}
         source: "./GMServerWebPanel.React/dist/*"
-        target: "/var/www/GMServerWebPanel/fronend"
+        target: "/var/www/GMServerWebPanel/frontend"
         strip_components: 2
         overwrite: true
 
