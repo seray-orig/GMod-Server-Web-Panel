@@ -17,9 +17,6 @@ jobs:
       with:
         dotnet-version: 10.0.x
 
-    - name: Скачивание приблуд
-      run: dotnet restore
-
     - name: Виновник торжества
       run: dotnet test GMServerWebPanel.API.UnitTests
 
@@ -35,9 +32,6 @@ jobs:
       uses: actions/setup-dotnet@v5
       with:
         dotnet-version: 10.0.x
-
-    - name: Скачивание приблуд
-      run: dotnet restore
 
     - name: Виновник торжества
       run: dotnet test GMServerWebPanel.API.IntegrationTests
@@ -71,11 +65,8 @@ jobs:
       with:
         dotnet-version: 10.0.x
 
-    - name: Скачивание приблуд
-      run: dotnet restore
-
     - name: Стройка
-      run: dotnet build --no-restore
+      run: dotnet build
 
     - name: Стройка полноценная
       run: |

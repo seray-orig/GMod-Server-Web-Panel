@@ -4,7 +4,7 @@ using System.Text;
 
 namespace GMServerWebPanel.API.IntegrationTests;
 
-public class LoginApiTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
+public class LoginPostTests(WebApplicationFactory<Program> factory) : IClassFixture<WebApplicationFactory<Program>>
 {
     private readonly WebApplicationFactory<Program> _factory = factory;
 

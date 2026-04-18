@@ -8,7 +8,6 @@ using System.Text;
 
 namespace GMServerWebPanel.API.Services
 {
-
     public class JwtService(IOptions<JwtSettings> settings) : ITokenServise
     {
         private readonly JwtSettings _settings = settings.Value;
@@ -17,7 +16,7 @@ namespace GMServerWebPanel.API.Services
         {
             var claims = new[]
             {
-                new Claim(ClaimTypes.Name, user.Login)
+                new Claim("Login", user.Login)
             };
 
             var key = new SymmetricSecurityKey(
@@ -32,6 +31,7 @@ namespace GMServerWebPanel.API.Services
                 issuer: _settings.Issuer,
                 audience: _settings.Audience,
                 claims: claims,
+                notBefore: _settings.NotBefore ?? DateTime.UtcNow,
                 expires: time,
                 signingCredentials: creds);
 

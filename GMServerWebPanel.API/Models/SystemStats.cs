@@ -1,4 +1,4 @@
-﻿namespace ASP_API.Models
+﻿namespace GMServerWebPanel.API.Models
 {
     public class SystemStats
     {
