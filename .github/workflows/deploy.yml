@@ -48,9 +48,8 @@ jobs:
         username: ${{ secrets.VDS_USER }}
         key: ${{ secrets.VDS_SSH_KEY }}
         script: |
-          mkdir /var/www/GMServerWebPanel
-          mkdir /var/www/GMServerWebPanel/api
-          mkdir /var/www/GMServerWebPanel/frontend
+          mkdir -p /var/www/GMServerWebPanel/api
+          mkdir -p /var/www/GMServerWebPanel/frontend
 
   build-api-deploy:
     runs-on: ubuntu-latest
