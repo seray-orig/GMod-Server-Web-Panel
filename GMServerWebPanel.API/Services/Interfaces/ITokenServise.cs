@@ -1,6 +1,6 @@
 ﻿using GMServerWebPanel.API.Models;
 
-namespace GMServerWebPanel.API.Services
+namespace GMServerWebPanel.API.Services.Interfaces
 {
     public interface ITokenServise
     {

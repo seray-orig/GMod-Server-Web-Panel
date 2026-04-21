@@ -1,15 +1,12 @@
-﻿using GMServerWebPanel.API.Services;
-using GMServerWebPanel.API.Models;
+﻿using GMServerWebPanel.API.Models;
 using Microsoft.AspNetCore.Mvc;
+using GMServerWebPanel.API.Services.Interfaces;
 
 namespace GMServerWebPanel.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    public class AuthController(
-        IUserService userService,
-        ITokenServise jwtService
-        ) : ControllerBase
+    public class AuthController(IUserService userService, ITokenServise jwtService) : ControllerBase
     {
         private readonly IUserService _userService = userService;
         private readonly ITokenServise _jwtService = jwtService;

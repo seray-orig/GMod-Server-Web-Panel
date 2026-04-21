@@ -1,6 +1,6 @@
 ﻿using GMServerWebPanel.API.Controllers;
 using GMServerWebPanel.API.Models;
-using GMServerWebPanel.API.Services;
+using GMServerWebPanel.API.Services.Interfaces;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
@@ -75,7 +75,8 @@ namespace GMServerWebPanel.API.UnitTests
             // Act
             var response = controller.Login(new LoginRequest()
             {
-                Login = login, Password = password
+                Login = login,
+                Password = password
             });
 
             // Assert
@@ -113,7 +114,8 @@ namespace GMServerWebPanel.API.UnitTests
             // Act
             var response = controller.Login(new LoginRequest()
             {
-                Login = invalidLogin, Password = invalidPassword
+                Login = invalidLogin,
+                Password = invalidPassword
             });
 
             // Assert

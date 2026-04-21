@@ -10,26 +10,26 @@ namespace GMServerWebPanel.API.UnitTests
 {
     public class JwtServiceTests
     {
+        private readonly IOptions<JwtSettings> jwtSettings = Options.Create(new JwtSettings()
+        {
+            Key = "ХакерскийКлючСоздайтеСвой32СимволаИспользуйтеГенераторПаролей",
+            Issuer = "TestDomain",
+            Audience = "TestDomain",
+            ExpiresMinutes = 30,
+            ExpiresDays = 7
+        });
+
+        private readonly User user = new()
+        {
+            Login = "TestLogin",
+            Password = "TestPassword"
+        };
+
         [Fact]
         public void GenerateToken_ReturnsNotEmptyString()
         {
             // Arrange
-            var jwtSettings = Options.Create(new JwtSettings()
-            {
-                Key = "ХакерскийКлючСоздайтеСвой32СимволаИспользуйтеГенераторПаролей",
-                Issuer = "TestDomain",
-                Audience = "TestDomain",
-                ExpiresMinutes = 30,
-                ExpiresDays = 7
-            });
-
             var jwtService = new JwtService(jwtSettings);
-
-            var user = new User()
-            {
-                Login = "TestLogin",
-                Password = "TestPassword"
-            };
 
             // Act
             var tokenString = jwtService.GenerateToken(user, false);
@@ -46,22 +46,7 @@ namespace GMServerWebPanel.API.UnitTests
             // Arrange
             var handler = new JwtSecurityTokenHandler();
 
-            var jwtSettings = Options.Create(new JwtSettings()
-            {
-                Key = "ХакерскийКлючСоздайтеСвой32СимволаИспользуйтеГенераторПаролей",
-                Issuer = "TestDomain",
-                Audience = "TestDomain",
-                ExpiresMinutes = 30,
-                ExpiresDays = 7
-            });
-
             var jwtService = new JwtService(jwtSettings);
-
-            var user = new User()
-            {
-                Login = "TestLogin",
-                Password = "TestPassword"
-            };
 
             // Act
             var tokenString = jwtService.GenerateToken(user, rememberMe);
@@ -90,22 +75,7 @@ namespace GMServerWebPanel.API.UnitTests
             // Arrange
             var handler = new JwtSecurityTokenHandler();
 
-            var jwtSettings = Options.Create(new JwtSettings()
-            {
-                Key = "ХакерскийКлючСоздайтеСвой32СимволаИспользуйтеГенераторПаролей",
-                Issuer = "TestDomain",
-                Audience = "TestDomain",
-                ExpiresMinutes = 30,
-                ExpiresDays = 7
-            });
-
             var jwtService = new JwtService(jwtSettings);
-
-            var user = new User()
-            {
-                Login = "TestLogin",
-                Password = "TestPassword"
-            };
 
             var validationParameters = new TokenValidationParameters
             {
@@ -150,12 +120,6 @@ namespace GMServerWebPanel.API.UnitTests
 
             var jwtService = new JwtService(jwtSettings);
 
-            var user = new User()
-            {
-                Login = "TestLogin",
-                Password = "TestPassword"
-            };
-
             var validationParameters = new TokenValidationParameters
             {
                 ValidIssuer = jwtSettings.Value.Issuer,
@@ -183,25 +147,10 @@ namespace GMServerWebPanel.API.UnitTests
             // Arrange
             var handler = new JwtSecurityTokenHandler();
 
-            var jwtSettings = Options.Create(new JwtSettings()
-            {
-                Key = "ХакерскийКлючСоздайтеСвой32СимволаИспользуйтеГенераторПаролей",
-                Issuer = "TestDomain",
-                Audience = "TestDomain",
-                ExpiresMinutes = 30,
-                ExpiresDays = 7
-            });
-
             // Create fake key.
             var jwtFakeSecretKey = jwtSettings.Value.Key + "FakeKey!";
 
             var jwtService = new JwtService(jwtSettings);
-
-            var user = new User()
-            {
-                Login = "TestLogin",
-                Password = "TestPassword"
-            };
 
             var wrongValidationParameters = new TokenValidationParameters
             {
@@ -219,7 +168,7 @@ namespace GMServerWebPanel.API.UnitTests
             var tokenString = jwtService.GenerateToken(user, false);
 
             // Assert
-            Assert.Throws<SecurityTokenSignatureKeyNotFoundException> (() =>
+            Assert.Throws<SecurityTokenSignatureKeyNotFoundException>(() =>
                 handler.ValidateToken(tokenString, wrongValidationParameters, out _));
         }
 
@@ -229,22 +178,7 @@ namespace GMServerWebPanel.API.UnitTests
             // Arrange
             var handler = new JwtSecurityTokenHandler();
 
-            var jwtSettings = Options.Create(new JwtSettings()
-            {
-                Key = "ХакерскийКлючСоздайтеСвой32СимволаИспользуйтеГенераторПаролей",
-                Issuer = "TestDomain",
-                Audience = "TestDomain",
-                ExpiresMinutes = 30,
-                ExpiresDays = 7
-            });
-
             var jwtService = new JwtService(jwtSettings);
-
-            var user = new User()
-            {
-                Login = "TestLogin",
-                Password = "TestPassword"
-            };
 
             // Act
             var tokenString = jwtService.GenerateToken(user, false);

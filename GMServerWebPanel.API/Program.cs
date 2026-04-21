@@ -1,7 +1,9 @@
+using GMServerWebPanel.API.Data;
+using GMServerWebPanel.API.Services;
+using GMServerWebPanel.API.Services.Interfaces;
+using GMServerWebPanel.API.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using GMServerWebPanel.API.Settings;
-using GMServerWebPanel.API.Services;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -31,9 +33,12 @@ builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 
 builder.Services.Configure<JwtSettings>(config.GetSection("JWTSettings"));
+builder.Services.Configure<Argon2Settings>(config.GetSection("Argon2Settings"));
 
+builder.Services.AddDbContext<AppDbContext>();
 builder.Services.AddScoped<ITokenServise, JwtService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IPasswordHasher, Argon2Hasher>();
 builder.Services.AddSingleton<SystemStatsService>();
 
 var app = builder.Build();
