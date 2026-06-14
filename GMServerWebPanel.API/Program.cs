@@ -47,7 +47,7 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins($"http://{config["JWTSettings:Issuer"]}")
+        policy.WithOrigins($"https://{config["JWTSettings:Issuer"]}")
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
