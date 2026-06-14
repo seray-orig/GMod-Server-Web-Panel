@@ -47,7 +47,7 @@ builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.WithOrigins($"https://{config["JWTSettings:Issuer"]}")
+        policy.WithOrigins("https://graytown.duckdns.org")
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
