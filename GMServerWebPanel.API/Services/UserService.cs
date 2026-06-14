@@ -20,9 +20,7 @@ namespace GMServerWebPanel.API.Services
             if (user == null)
                 return null;
 
-            bool isPasswordValid = _passwordHasher.VerifyPassword(password, user.Password);
-
-            if (isPasswordValid)
+            if (_passwordHasher.VerifyPassword(password, user.Password))
                 return user;
             else
                 return null;

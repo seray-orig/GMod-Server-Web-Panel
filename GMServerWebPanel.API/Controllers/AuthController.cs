@@ -1,6 +1,7 @@
 ﻿using GMServerWebPanel.API.Models;
-using Microsoft.AspNetCore.Mvc;
 using GMServerWebPanel.API.Services.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace GMServerWebPanel.API.Controllers
 {
@@ -22,6 +23,13 @@ namespace GMServerWebPanel.API.Controllers
             var token = _jwtService.GenerateToken(user, request.RememberMe);
 
             return Ok(new { token });
+        }
+
+        [HttpGet("verify")]
+        [Authorize]
+        public IActionResult Verify()
+        {
+            return Ok();
         }
     }
 }

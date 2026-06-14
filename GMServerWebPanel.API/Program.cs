@@ -3,6 +3,7 @@ using GMServerWebPanel.API.Services;
 using GMServerWebPanel.API.Services.Interfaces;
 using GMServerWebPanel.API.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 
@@ -35,17 +36,36 @@ builder.Services.AddControllers();
 builder.Services.Configure<JwtSettings>(config.GetSection("JWTSettings"));
 builder.Services.Configure<Argon2Settings>(config.GetSection("Argon2Settings"));
 
-builder.Services.AddDbContext<AppDbContext>();
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddScoped<ITokenServise, JwtService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPasswordHasher, Argon2Hasher>();
 builder.Services.AddSingleton<SystemStatsService>();
 
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("http://localhost:5500")
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.EnsureCreated();
+}
 
 app.MapControllers();
 
 app.UseAuthentication();
 app.UseAuthorization();
+
+app.UseCors();
 
 app.Run();
