@@ -16,7 +16,7 @@ function LoginPage() {
     useEffect(() => {
         const fetchTitle = async () => {
             try {
-                const response = await fetch('http://localhost:5000/api/titles/login-page');
+                const response = await fetch('/api/titles/login-page');
                 if (response.ok) {
                     const data = await response.json();
                     setPageTitle(data.titleH1);
@@ -36,7 +36,7 @@ function LoginPage() {
         setError('');
 
         try {
-            const response = await fetch('http://localhost:5000/api/auth/login', {
+            const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ login, password, rememberMe }),

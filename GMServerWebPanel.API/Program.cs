@@ -43,16 +43,6 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPasswordHasher, Argon2Hasher>();
 builder.Services.AddSingleton<SystemStatsService>();
 
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.WithOrigins("https://graytown.duckdns.org")
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-    });
-});
-
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
@@ -65,7 +55,5 @@ app.MapControllers();
 
 app.UseAuthentication();
 app.UseAuthorization();
-
-app.UseCors();
 
 app.Run();

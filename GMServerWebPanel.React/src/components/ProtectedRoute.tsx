@@ -12,7 +12,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
         const verifyToken = async () => {
             try {
                 const token = localStorage.getItem('token');
-                const response = await fetch('http://localhost:5000/api/auth/verify', {
+                const response = await fetch('/api/auth/verify', {
                     headers: token ? { Authorization: `Bearer ${token}` } : {},
                 });
 
