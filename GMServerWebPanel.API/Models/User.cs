@@ -9,5 +9,14 @@ namespace GMServerWebPanel.API.Models
 
         [Required]
         public required string Password { get; set; }
+
+        public static User GenerateRandomUser()
+        {
+            return new User
+            {
+                Login = Guid.NewGuid().ToString(),
+                Password = Guid.NewGuid().ToString()
+            };
+        }
     }
 }

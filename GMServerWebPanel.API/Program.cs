@@ -1,4 +1,5 @@
 using GMServerWebPanel.API.Data;
+using GMServerWebPanel.API.Models;
 using GMServerWebPanel.API.Services;
 using GMServerWebPanel.API.Services.Interfaces;
 using GMServerWebPanel.API.Settings;
@@ -36,19 +37,36 @@ builder.Services.AddControllers();
 builder.Services.Configure<JwtSettings>(config.GetSection("JWTSettings"));
 builder.Services.Configure<Argon2Settings>(config.GetSection("Argon2Settings"));
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.AddDbContext<AppDbContext>(options => options.UseSqlite("Data Source=users.db"));
 builder.Services.AddScoped<ITokenServise, JwtService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPasswordHasher, Argon2Hasher>();
+builder.Services.AddScoped<IFileSystemService, LinuxFileSystemService>();
 builder.Services.AddSingleton<SystemStatsService>();
 
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var services = scope.ServiceProvider;
+    var db = services.GetRequiredService<AppDbContext>();
+
     db.Database.EnsureCreated();
+
+    if (!db.Users.Any())
+    {
+        var passwordHasher = services.GetRequiredService<IPasswordHasher>();
+        var fileSystemService = services.GetRequiredService<IFileSystemService>();
+
+        var user = User.GenerateRandomUser();
+
+        fileSystemService.WriteTextFile("gmod-panel-user.txt", $"Admin User\nLogin: {user.Login}\nPassword: {user.Password}");
+
+        user.Password = passwordHasher.HashPassword(user.Password);
+
+        db.Users.Add(user);
+        db.SaveChanges();
+    }
 }
 
 app.MapControllers();

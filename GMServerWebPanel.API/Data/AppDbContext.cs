@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace GMServerWebPanel.API.Data
 {
-    public class AppDbContext(DbContextOptions<AppDbContext> options, IPasswordHasher passwordHasher) : DbContext(options)
+    public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
     {
         public DbSet<User> Users => Set<User>();
 
@@ -14,14 +14,6 @@ namespace GMServerWebPanel.API.Data
 
             modelBuilder.Entity<User>()
                 .HasKey(u => u.Login);
-
-            modelBuilder.Entity<User>().HasData(
-                new User
-                {
-                    Login = "TestLogin",
-                    Password = passwordHasher.HashPassword("TestPassword")
-                }
-            );
         }
     }
 }

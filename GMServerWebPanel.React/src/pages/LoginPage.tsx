@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './LoginPage.css';
 
@@ -8,27 +8,8 @@ function LoginPage() {
     const [rememberMe, setRememberMe] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
-    const [pageTitle, setPageTitle] = useState('Вход');
-    const [welcomeMessage, setWelcomeMessage] = useState('Welcome');
     const [showPassword, setShowPassword] = useState(false);
     const navigate = useNavigate();
-
-    useEffect(() => {
-        const fetchTitle = async () => {
-            try {
-                const response = await fetch('/api/titles/login-page');
-                if (response.ok) {
-                    const data = await response.json();
-                    setPageTitle(data.titleH1);
-                    setWelcomeMessage(data.titleH3);
-                }
-            } catch {
-                setPageTitle('Вход');
-                setWelcomeMessage('Welcome');
-            }
-        };
-        fetchTitle();
-    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -61,8 +42,8 @@ function LoginPage() {
     return (
         <div className="login-container">
             <div className="login-card">
-                <h1 className="login-title">{pageTitle}</h1>
-                <h3 className="login-welcome">{welcomeMessage}</h3>
+                <h1 className="login-title">Gray Town</h1>
+                <h3 className="login-welcome">Welcome</h3>
                 <form onSubmit={handleSubmit}>
                     <div className="input-group">
                         <label htmlFor="login">Логин</label>
@@ -71,7 +52,7 @@ function LoginPage() {
                             id="login"
                             value={login}
                             onChange={(e) => setLogin(e.target.value)}
-                            maxLength={30}
+                            maxLength={36}
                         />
                     </div>
 
