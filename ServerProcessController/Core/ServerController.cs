@@ -145,12 +145,14 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
         // Поток логов (gRPC стрим)
         public async IAsyncEnumerable<string> StreamLogsAsync()
         {
-            while (await _logChannel.Reader.WaitToReadAsync())
+            // Отправляем стартовый маркер, чтобы gRPC канал сразу проснулся и подтвердил связь
+            yield return "[Агент]: gRPC канал стриминга логов успешно инициализирован.";
+
+            // Читаем канал полностью асинхронно. 
+            // Это встроенный метод .NET, который не блокирует соседние gRPC вызовы (Start/Stop)
+            await foreach (var logLine in _logChannel.Reader.ReadAllAsync())
             {
-                while (_logChannel.Reader.TryRead(out var logLine))
-                {
-                    yield return logLine;
-                }
+                yield return logLine;
             }
         }
 
