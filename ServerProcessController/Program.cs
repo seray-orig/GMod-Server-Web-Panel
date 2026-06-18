@@ -1,4 +1,5 @@
 ﻿using GMServerWebPanel.API.ServerProcessController.Core;
+using GMServerWebPanel.API.Shared;
 using ProtoBuf.Grpc.Server;
 
 var builder = WebApplication.CreateBuilder();
@@ -21,7 +22,7 @@ builder.Services.AddSingleton<ServerController>();
 var app = builder.Build();
 
 // 3. Привязываем класс к gRPC сети
-app.MapGrpcService<ServerController>();
+app.MapGrpcService<IServerProcessController>();
 
 Console.WriteLine("Агент успешно запущен и ожидает команды от веб-панели...");
 
