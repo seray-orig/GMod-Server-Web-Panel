@@ -39,5 +39,12 @@ namespace GMServerWebPanel.API.Controllers
             await _agentClient.UpdateServerAsync();
             return Ok();
         }
+
+        [HttpGet("logs")]
+        public async Task<IActionResult> GetLogs()
+        {
+            var logsList = await _agentClient.GetLatestLogsAsync();
+            return Ok(new { logs = logsList });
+        }
     }
 }

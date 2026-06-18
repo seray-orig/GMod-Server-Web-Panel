@@ -1,12 +1,12 @@
 ﻿using GMServerWebPanel.API.Shared;
 using System.Diagnostics;
-using System.Threading.Channels;
 
 namespace GMServerWebPanel.API.ServerProcessController.Core
 {
     internal sealed class ServerController : IServerProcessController
     {
-        private readonly Channel<string> _logChannel = Channel.CreateUnbounded<string>();
+        // Обычный буфер для хранения последних 200 строк лога
+        private readonly List<string> _logBuffer = new();
         private Process? _serverProcess;
 
         private ProcessStartInfo GetStartInfo() => new()
@@ -20,147 +20,88 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
             CreateNoWindow = true
         };
 
-        // Локальный синхронный запуск (для тестов внутри Агента)
-        public bool Start()
+        public Task<bool> StartServerAsync()
         {
             if (_serverProcess != null && !_serverProcess.HasExited)
             {
-                _logChannel.Writer.TryWrite("[Контроллер]: Сервер уже запущен.");
-                return false;
+                lock (_logBuffer) { _logBuffer.Add("[Контроллер]: Сервер уже работает."); }
+                return Task.FromResult(false);
             }
-
-            var startInfo = GetStartInfo();
-            if (!File.Exists(startInfo.FileName))
-            {
-                _logChannel.Writer.TryWrite($"[Ошибка ОС]: Файл не найден по пути {startInfo.FileName}");
-                return false;
-            }
-
-            _serverProcess = new Process { StartInfo = startInfo };
-
-            // Мгновенно перехватываем каждую строчку вывода консоли GMod по сети
-            _serverProcess.OutputDataReceived += (sender, args) =>
-            {
-                if (args.Data != null)
-                {
-                    _logChannel.Writer.TryWrite(args.Data);
-                }
-            };
-
-            // Перехватываем системные ошибки сегментации движка Source (Segmentation fault)
-            _serverProcess.ErrorDataReceived += (sender, args) =>
-            {
-                if (args.Data != null)
-                {
-                    _logChannel.Writer.TryWrite($"[ОШИБКА LINUX SRCDS]: {args.Data}");
-                }
-            };
 
             try
             {
-                _serverProcess.Start();
+                var startInfo = GetStartInfo();
+                _serverProcess = new Process { StartInfo = startInfo };
 
-                // Начинаем асинхронное чтение потоков
+                // Ловим вывод и просто пишем в массив в памяти
+                _serverProcess.OutputDataReceived += (s, args) =>
+                {
+                    if (args.Data == null) return;
+                    lock (_logBuffer)
+                    {
+                        _logBuffer.Add(args.Data);
+                        if (_logBuffer.Count > 200) _logBuffer.RemoveAt(0); // Храним только последние 200 строк
+                    }
+                };
+
+                _serverProcess.Start();
                 _serverProcess.BeginOutputReadLine();
                 _serverProcess.BeginErrorReadLine();
 
-                _logChannel.Writer.TryWrite("[Контроллер]: Процесс srcds_run успешно запущен. Потоки ввода-вывода перенаправлены.");
-
-                // Фоновое отслеживание смерти процесса, чтобы сообщить в логи панели
-                _ = _serverProcess.WaitForExitAsync().ContinueWith(_ =>
-                {
-                    _logChannel.Writer.TryWrite("[Контроллер]: Игровой сервер завершил свою работу.");
-                });
-
-                return true;
+                lock (_logBuffer) { _logBuffer.Add("[Контроллер]: Процесс успешно запущен ОС!"); }
+                return Task.FromResult(true);
             }
             catch (Exception ex)
             {
-                _logChannel.Writer.TryWrite($"[Ошибка запуска]: {ex.Message}");
-                return false;
+                lock (_logBuffer) { _logBuffer.Add($"[Ошибка запуска]: {ex.Message}"); }
+                return Task.FromResult(false);
             }
         }
 
-        // Реализация метода интерфейса gRPC (для вызова из Веб-Панели)
-        public Task StartServerAsync()
-        {
-            Start();
-            return Task.CompletedTask;
-        }
-
-        // Остановка сервера
-        public Task StopServerAsync()
+        public Task<bool> StopServerAsync()
         {
             if (_serverProcess == null || _serverProcess.HasExited)
             {
-                _logChannel.Writer.TryWrite("[Контроллер]: Сервер уже остановлен.");
-                return Task.CompletedTask;
+                lock (_logBuffer) { _logBuffer.Add("[Контроллер]: Некого выключать, процесс мертв."); }
+                return Task.FromResult(false);
             }
-
-            _logChannel.Writer.TryWrite("[Контроллер]: Отправка команды завершения (exit) в консоль сервера...");
 
             try
             {
-                // Мягко просим Source-сервер закрыться
+                lock (_logBuffer) { _logBuffer.Add("[Контроллер]: Принудительное уничтожение процесса..."); }
+
                 _serverProcess.StandardInput.WriteLine("exit");
 
-                // Ждем 10 секунд. Если не закрылся — убиваем процесс жестко
-                if (!_serverProcess.WaitForExit(10000))
-                {
-                    _logChannel.Writer.TryWrite("[Контроллер]: Сервер проигнорировал команду exit. Принудительное завершение (Kill)...");
-                    _serverProcess.Kill();
-                }
+                lock (_logBuffer) { _logBuffer.Add("[Контроллер]: Процесс успешно уничтожен."); }
+                return Task.FromResult(true);
             }
             catch (Exception ex)
             {
-                _logChannel.Writer.TryWrite($"[Ошибка остановки]: {ex.Message}");
+                lock (_logBuffer) { _logBuffer.Add($"[Ошибка при Kill]: {ex.Message}"); }
+                return Task.FromResult(false);
             }
-
-            _logChannel.Writer.TryWrite("[Контроллер]: Игровой сервер остановлен.");
-            return Task.CompletedTask;
         }
 
-        // Отправка команды в консоль GMod
         public Task SendCommandAsync(string command)
         {
-            if (_serverProcess == null || _serverProcess.HasExited)
-            {
-                _logChannel.Writer.TryWrite("[Контроллер]: Невозможно отправить команду. Сервер выключен.");
-                return Task.CompletedTask;
-            }
-
-            try
+            if (_serverProcess != null && !_serverProcess.HasExited)
             {
                 _serverProcess.StandardInput.WriteLine(command);
-                _logChannel.Writer.TryWrite($"] {command}"); // Дублируем отправленную команду в логи для истории
             }
-            catch (Exception ex)
-            {
-                _logChannel.Writer.TryWrite($"[Ошибка отправки команды]: {ex.Message}");
-            }
-
             return Task.CompletedTask;
         }
 
-        // Поток логов (gRPC стрим)
-        public async IAsyncEnumerable<string> StreamLogsAsync()
+        // Метод просто отдает накопленные строки бэкенду панели
+        public Task<List<string>> GetLatestLogsAsync()
         {
-            // Отправляем стартовый маркер, чтобы gRPC канал сразу проснулся и подтвердил связь
-            yield return "[Агент]: gRPC канал стриминга логов успешно инициализирован.";
-
-            // Читаем канал полностью асинхронно. 
-            // Это встроенный метод .NET, который не блокирует соседние gRPC вызовы (Start/Stop)
-            await foreach (var logLine in _logChannel.Reader.ReadAllAsync())
+            lock (_logBuffer)
             {
-                yield return logLine;
+                return Task.FromResult(_logBuffer.ToList());
             }
         }
 
-        // Заглушка для обновления через SteamCMD
         public Task UpdateServerAsync()
         {
-            _logChannel.Writer.TryWrite("[Контроллер]: Запущено обновление сервера (Заглушка)...");
-            // Сюда позже вставите логику вызова SteamCMD, которую мы обсуждали ранее
             return Task.CompletedTask;
         }
     }

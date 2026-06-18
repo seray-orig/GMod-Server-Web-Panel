@@ -5,19 +5,10 @@ namespace GMServerWebPanel.API.Shared
     [ServiceContract(Name = "ServerProcessController")]
     public interface IServerProcessController
     {
-        [OperationContract]
-        Task StartServerAsync();
-
-        [OperationContract]
-        Task StopServerAsync();
-
-        [OperationContract]
-        Task UpdateServerAsync();
-
-        [OperationContract]
-        Task SendCommandAsync(string command);
-
-        [OperationContract]
-        IAsyncEnumerable<string> StreamLogsAsync();
+        [OperationContract] Task<bool> StartServerAsync();
+        [OperationContract] Task<bool> StopServerAsync();
+        [OperationContract] Task SendCommandAsync(string command);
+        [OperationContract] Task UpdateServerAsync();
+        [OperationContract] Task<List<string>> GetLatestLogsAsync();
     }
 }
