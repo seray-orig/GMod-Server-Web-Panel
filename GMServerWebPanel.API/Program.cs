@@ -1,3 +1,4 @@
+using GMServerWebPanel.API.Controllers;
 using GMServerWebPanel.API.Data;
 using GMServerWebPanel.API.Models;
 using GMServerWebPanel.API.Services;
@@ -7,6 +8,7 @@ using GMServerWebPanel.API.Shared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using ProtoBuf.Grpc.ClientFactory;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,7 +17,7 @@ var config = builder.Configuration;
 // Генерация ключа для JWT.
 if (string.IsNullOrEmpty(config["JWTSettings:Key"]))
 {
-    // Каждый раз генерит новый, ибо нехуй. Пусть свой придумывают и записывают в appsettings.json
+    // Каждый раз генерит новый, ибо нефиг. Пусть свой придумывают и записывают в appsettings.json
     config["JWTSettings:Key"] = $"{Guid.NewGuid().ToString()}_{Guid.NewGuid().ToString()}";
 }
 
@@ -50,8 +52,17 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPasswordHasher, Argon2Hasher>();
 builder.Services.AddScoped<IFileSystemService, LinuxFileSystemService>();
 builder.Services.AddSingleton<SystemStatsService>();
+builder.Services.AddSignalR();
+builder.Services.AddHostedService<LogStreamerService>();
+
+builder.Services.AddCodeFirstGrpcClient<IServerProcessController>(options =>
+{
+    options.Address = new Uri(config["ServerUrls"] ?? "http://localhost:50051");
+});
 
 var app = builder.Build();
+
+app.MapHub<LogHub>("/hub/logs");
 
 using (var scope = app.Services.CreateScope())
 {

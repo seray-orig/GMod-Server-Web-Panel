@@ -12,6 +12,7 @@
 *.env
 *.db
 *.db-*
+gmod-panel-user.txt
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

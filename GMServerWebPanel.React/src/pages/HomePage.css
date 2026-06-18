@@ -1,0 +1,155 @@
+/* HomePage.css */
+
+/* Общий фон и центровка */
+.home-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: #1a1a1a; /* тёмный фон всей страницы */
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Центральная панель */
+.home-panel {
+    background: #2a2a2a;
+    border-radius: 8px;
+    padding: 1.5rem;
+    width: 100%;
+    max-width: 800px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Шапка: заголовок и кнопка выхода */
+.home-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.home-title {
+    color: #e0e0e0;
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.logout-btn {
+    background: #444;
+    color: #ccc;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.2s;
+}
+.logout-btn:hover {
+    background: #666;
+}
+
+/* Окно логов */
+.log-window {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    border-radius: 4px;
+    padding: 0.75rem 1rem;
+    height: 400px;
+    overflow-y: auto;
+    font-family: 'Consolas', 'Courier New', monospace;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    border: 1px solid #3a3a3a;
+}
+
+.log-empty {
+    color: #888;
+    text-align: center;
+    margin-top: 2rem;
+}
+
+.log-line {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Форма ввода команды */
+.command-form {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.command-input {
+    flex: 1;
+    background: #1e1e1e;
+    border: 1px solid #3a3a3a;
+    border-radius: 4px;
+    color: #d4d4d4;
+    padding: 0.6rem 0.8rem;
+    font-family: 'Consolas', monospace;
+    font-size: 0.9rem;
+}
+
+.command-input::placeholder {
+    color: #666;
+}
+
+.command-btn {
+    background: #3a3a3a;
+    color: #ccc;
+    border: none;
+    border-radius: 4px;
+    padding: 0.6rem 1.2rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.command-btn:hover:not(:disabled) {
+    background: #555;
+}
+.command-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Блок управляющих кнопок */
+.control-buttons {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: center;
+}
+
+.control-btn {
+    flex: 1;
+    max-width: 200px;
+    padding: 0.75rem 1rem;
+    border: none;
+    border-radius: 4px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    color: white;
+}
+
+.control-btn.start {
+    background-color: #2e7d32;
+}
+.control-btn.start:hover {
+    background-color: #1b5e20;
+}
+
+.control-btn.stop {
+    background-color: #c62828;
+}
+.control-btn.stop:hover {
+    background-color: #8e0000;
+}
+
+.control-btn.update {
+    background-color: #1565c0;
+}
+.control-btn.update:hover {
+    background-color: #0d47a1;
+}
