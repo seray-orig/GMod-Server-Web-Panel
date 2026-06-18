@@ -27,9 +27,6 @@ namespace GMServerWebPanel.API.Controllers
 
         [HttpGet("verify")]
         [Authorize]
-        public IActionResult Verify()
-        {
-            return Ok();
-        }
+        public IActionResult Verify() => Ok();
     }
 }

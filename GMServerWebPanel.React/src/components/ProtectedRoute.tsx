@@ -1,45 +1,22 @@
-import React, { useEffect, useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, Outlet } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-interface ProtectedRouteProps {
-    children: React.ReactNode;
-}
+const ProtectedRoute = () => {
+    const { isAuthenticated, isLoading } = useAuth();
 
-const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-    const [isValid, setIsValid] = useState<boolean | null>(null);
-
-    useEffect(() => {
-        const verifyToken = async () => {
-            try {
-                const token = localStorage.getItem('token');
-                const response = await fetch('/api/auth/verify', {
-                    headers: token ? { Authorization: `Bearer ${token}` } : {},
-                });
-
-                if (response.ok) {
-                    setIsValid(true);
-                } else {
-                    localStorage.removeItem('token');
-                    setIsValid(false);
-                }
-            } catch {
-                localStorage.removeItem('token');
-                setIsValid(false);
-            }
-        };
-
-        verifyToken();
-    }, []);
-
-    if (isValid === null) {
-        return <div>Проверка авторизации...</div>;
+    if (isLoading) {
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+                <div>Проверка авторизации...</div>
+            </div>
+        );
     }
 
-    if (!isValid) {
+    if (!isAuthenticated) {
         return <Navigate to="/login" replace />;
     }
 
-    return <>{children}</>;
+    return <Outlet />;
 };
 
 export default ProtectedRoute;

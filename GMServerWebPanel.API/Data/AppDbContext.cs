@@ -1,5 +1,4 @@
 ﻿using GMServerWebPanel.API.Models;
-using GMServerWebPanel.API.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
 
 namespace GMServerWebPanel.API.Data

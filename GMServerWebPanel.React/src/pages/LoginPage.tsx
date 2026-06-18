@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext'; // Импортируем наш контекст авторизации
 import './LoginPage.css';
 
 function LoginPage() {
-    const [login, setLogin] = useState('');
+    // Переименовали в loginInput, чтобы имя не совпадало с функцией login из useAuth
+    const [loginInput, setLoginInput] = useState('');
     const [password, setPassword] = useState('');
     const [rememberMe, setRememberMe] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
     const [showPassword, setShowPassword] = useState(false);
+
+    const { login: loginFromServer } = useAuth(); // Достаем функцию авторизации из контекста
     const navigate = useNavigate();
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -20,7 +24,7 @@ function LoginPage() {
             const response = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ login, password, rememberMe }),
+                body: JSON.stringify({ login: loginInput, password, rememberMe }),
             });
 
             if (!response.ok) {
@@ -29,7 +33,11 @@ function LoginPage() {
             }
 
             const data = await response.json();
-            localStorage.setItem('token', data.token);
+
+            // Вызываем функцию из контекста — она запишет токен и переключит стейт isAuthenticated в true
+            loginFromServer(data.token);
+
+            // Перенаправляем на защищенный главный роут "/" (или "/home", если вы изменили App.tsx)
             navigate('/home', { replace: true });
         } catch (err: unknown) {
             if (err instanceof Error) setError(err.message);
@@ -50,8 +58,8 @@ function LoginPage() {
                         <input
                             type="text"
                             id="login"
-                            value={login}
-                            onChange={(e) => setLogin(e.target.value)}
+                            value={loginInput}
+                            onChange={(e) => setLoginInput(e.target.value)}
                             maxLength={36}
                         />
                     </div>

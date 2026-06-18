@@ -3,6 +3,7 @@ using GMServerWebPanel.API.Models;
 using GMServerWebPanel.API.Services;
 using GMServerWebPanel.API.Services.Interfaces;
 using GMServerWebPanel.API.Settings;
+using GMServerWebPanel.API.Shared;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -10,6 +11,13 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
+
+// Генерация ключа для JWT.
+if (string.IsNullOrEmpty(config["JWTSettings:Key"]))
+{
+    // Каждый раз генерит новый, ибо нехуй. Пусть свой придумывают и записывают в appsettings.json
+    config["JWTSettings:Key"] = $"{Guid.NewGuid().ToString()}_{Guid.NewGuid().ToString()}";
+}
 
 builder.Services.AddAuthentication(options =>
 {
@@ -22,8 +30,7 @@ builder.Services.AddAuthentication(options =>
     {
         ValidIssuer = config["JWTSettings:Issuer"],
         ValidAudience = config["JWTSettings:Audience"],
-        IssuerSigningKey = new SymmetricSecurityKey
-            (Encoding.UTF8.GetBytes(config["JWTSettings:Key"]!)),
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(config["JWTSettings:Key"]!)),
         ValidateIssuer = true,
         ValidateAudience = true,
         ValidateLifetime = true,

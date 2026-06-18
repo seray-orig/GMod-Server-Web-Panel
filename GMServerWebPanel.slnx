@@ -1,5 +1,7 @@
 <Solution>
   <Project Path="GMServerWebPanel.API.IntegrationTests/GMServerWebPanel.API.IntegrationTests.csproj" />
+  <Project Path="GMServerWebPanel.API.Shared/GMServerWebPanel.API.Shared.csproj" Id="9d8fcbfa-d829-4de7-aa8e-13e289aa0616" />
   <Project Path="GMServerWebPanel.API.UnitTests/GMServerWebPanel.API.UnitTests.csproj" Id="15b761f0-3deb-4348-8182-90320d015a7a" />
   <Project Path="GMServerWebPanel.API/GMServerWebPanel.API.csproj" />
+  <Project Path="ServerProcessController/GMServerWebPanel.API.ServerProcessController.csproj" Id="d8abc47f-510b-4c8e-a1ef-20f8c8a922b5" />
 </Solution>

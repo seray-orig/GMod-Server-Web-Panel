@@ -29,4 +29,8 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.6" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\GMServerWebPanel.API.Shared\GMServerWebPanel.API.Shared.csproj" />
+  </ItemGroup>
+
 </Project>
