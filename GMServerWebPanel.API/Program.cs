@@ -77,6 +77,10 @@ builder.Services.AddCodeFirstGrpcClient<IServerProcessController>(options =>
 
 var app = builder.Build();
 
+app.UseAuthentication();
+app.UseAuthorization();
+
+app.MapControllers();
 app.MapHub<LogHub>("/hub/logs");
 
 using (var scope = app.Services.CreateScope())
@@ -101,10 +105,5 @@ using (var scope = app.Services.CreateScope())
         db.SaveChanges();
     }
 }
-
-app.MapControllers();
-
-app.UseAuthentication();
-app.UseAuthorization();
 
 app.Run();

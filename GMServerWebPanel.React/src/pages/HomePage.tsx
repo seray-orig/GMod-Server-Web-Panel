@@ -1,18 +1,25 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import * as signalR from '@microsoft/signalr'; // ИМПОРТИРУЕМ SIGNALR
+import * as signalR from '@microsoft/signalr';
 import './HomePage.css';
 
 function HomePage() {
     const { logout } = useAuth();
     const navigate = useNavigate();
-
     const [logs, setLogs] = useState<string[]>([]);
     const [command, setCommand] = useState('');
     const [isSending, setIsSending] = useState(false);
+    const logWindowRef = useRef<HTMLDivElement>(null); // 👈 Добавляем ref
 
     const token = localStorage.getItem('token');
+
+    // Автопрокрутка при изменении логов
+    useEffect(() => {
+        if (logWindowRef.current) {
+            logWindowRef.current.scrollTop = logWindowRef.current.scrollHeight;
+        }
+    }, [logs]);
 
     const handleLogout = () => {
         logout();
@@ -43,18 +50,14 @@ function HomePage() {
             .withAutomaticReconnect()
             .build();
 
-        // Слушаем событие "ReceiveLog" от бэкенда
         connection.on("ReceiveLog", (newLine: string) => {
-            // Добавляем новую строку в массив логов
             setLogs((prevLogs) => [...prevLogs, newLine]);
         });
 
-        // Запускаем соединение
         connection.start()
             .then(() => console.log("SignalR Connected!"))
-            .catch(err => console.error("SignalR Connection Error: ", err));
+            .catch(err => console.error("SignalR Connection Error:", err));
 
-        // При размонтировании страницы закрываем WebSocket, чтобы не тратить ресурсы
         return () => {
             connection.off("ReceiveLog");
             connection.stop();
@@ -71,9 +74,6 @@ function HomePage() {
                 body: JSON.stringify({ command }),
             });
             setCommand('');
-            // Мгновенное обновление логов вручную больше не требуется!
-            // Команда уйдет на сервер, сервер её исполнит, GMod выведет текст,
-            // Агент перехватит его и пушнет обратно в React за миллисекунды.
         } catch (err) {
             console.error(err);
         } finally {
@@ -81,7 +81,6 @@ function HomePage() {
         }
     };
 
-    // Управляющие кнопки (убрали вызовы fetchLogs, так как статус прилетит сам через логи)
     const handleStart = () => apiFetch('/api/server/start', { method: 'POST' });
     const handleStop = () => apiFetch('/api/server/stop', { method: 'POST' });
     const handleUpdate = () => apiFetch('/api/server/update', { method: 'POST' });
@@ -94,7 +93,7 @@ function HomePage() {
                     <button className="logout-btn" onClick={handleLogout}>Выйти</button>
                 </div>
 
-                <div className="log-window">
+                <div className="log-window" ref={logWindowRef}> {/* 👈 Добавляем ref */}
                     {logs.length === 0 ? (
                         <div className="log-empty">Логи пока пусты...</div>
                     ) : (

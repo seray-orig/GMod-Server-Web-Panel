@@ -94,30 +94,68 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
 
         private async Task ReadOutputAsync(Stream reader, CancellationToken ct)
         {
+            Console.WriteLine("[DEBUG] ReadOutputAsync запущен!");
             var buffer = new byte[4096];
+            var lineBuffer = new StringBuilder(); // Буфер для сборки строк
+
             try
             {
                 while (!ct.IsCancellationRequested)
                 {
                     int bytesRead = await reader.ReadAsync(buffer, 0, buffer.Length, ct);
-                    if (bytesRead == 0) break;
+                    if (bytesRead == 0)
+                    {
+                        Console.WriteLine("[DEBUG] Конец потока (bytesRead=0)");
+                        break;
+                    }
 
                     string output = Encoding.UTF8.GetString(buffer, 0, bytesRead);
 
-                    // Разбиваем на строки и отправляем в канал
-                    var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                    foreach (var line in lines)
+                    // Добавляем в буфер
+                    lineBuffer.Append(output);
+
+                    // Разбиваем по переносам строк
+                    string content = lineBuffer.ToString();
+                    int lastNewline = content.LastIndexOfAny(new[] { '\r', '\n' });
+
+                    if (lastNewline >= 0)
                     {
-                        await _logChannel.Writer.WriteAsync(line);
+                        // Обрабатываем все полные строки
+                        string fullLines = content.Substring(0, lastNewline);
+                        var lines = fullLines.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
+
+                        foreach (var line in lines)
+                        {
+                            if (!string.IsNullOrWhiteSpace(line))
+                            {
+                                Console.WriteLine($"[DEBUG] Отправка в канал: {line}");
+                                await _logChannel.Writer.WriteAsync(line);
+                            }
+                        }
+
+                        // Оставляем неполную строку в буфере
+                        lineBuffer.Clear();
+                        lineBuffer.Append(content.Substring(lastNewline + 1));
+                    }
+                }
+
+                // Обрабатываем оставшиеся данные
+                if (lineBuffer.Length > 0)
+                {
+                    string remaining = lineBuffer.ToString().Trim();
+                    if (!string.IsNullOrWhiteSpace(remaining))
+                    {
+                        await _logChannel.Writer.WriteAsync(remaining);
                     }
                 }
             }
             catch (OperationCanceledException)
             {
-                // Нормальное завершение
+                Console.WriteLine("[DEBUG] ReadOutputAsync отменен");
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[DEBUG] Ошибка чтения: {ex}");
                 await _logChannel.Writer.WriteAsync($"[Ошибка чтения вывода]: {ex.Message}");
             }
         }
