@@ -53,12 +53,12 @@ builder.Services.AddScoped<IPasswordHasher, Argon2Hasher>();
 builder.Services.AddScoped<IFileSystemService, LinuxFileSystemService>();
 builder.Services.AddSingleton<SystemStatsService>();
 
-/*
+
 builder.Services.AddCodeFirstGrpcClient<IServerProcessController>(options =>
 {
     options.Address = new Uri(config["ServerUrls"] ?? "http://localhost:50051");
 });
-*/
+
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
