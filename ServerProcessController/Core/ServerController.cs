@@ -1,5 +1,6 @@
 ﻿using GMServerWebPanel.API.Shared;
-using System.Diagnostics;
+using Porta.Pty;
+using System.Text;
 using System.Threading.Channels;
 
 namespace GMServerWebPanel.API.ServerProcessController.Core
@@ -12,79 +13,77 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
             SingleWriter = false
         });
 
-        private Process? _serverProcess;
-        private readonly SemaphoreSlim _processLock = new(1, 1); // Async-safe блокировка
-
-        private ProcessStartInfo GetStartInfo() => new()
-        {
-            FileName = "./mainServer/srcds_run",
-            Arguments = "-console -game garrysmod +gamemode terrortown +host_workshop_collection 2792454072 +map ttt_rooftops_2016_v1 +maxplayers 50 -port 27015 -steamport 26900 +clientport 27005",
-            RedirectStandardInput = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            CreateNoWindow = true,
-            WorkingDirectory = Path.GetDirectoryName("./mainServer/srcds_run") ?? "."
-        };
+        private IPtyConnection? _terminal;
+        private readonly SemaphoreSlim _processLock = new(1, 1);
+        private CancellationTokenSource? _readCts;
 
         public async Task StartServerAsync()
         {
             await _processLock.WaitAsync();
             try
             {
-                if (_serverProcess != null && !_serverProcess.HasExited)
+                if (_terminal != null)
                 {
                     await _logChannel.Writer.WriteAsync("[Контроллер]: Сервер уже запущен.");
                     return;
                 }
 
-                var startInfo = GetStartInfo();
-                if (!File.Exists(startInfo.FileName))
+                var serverPath = Path.GetFullPath("./mainServer/srcds_run");
+                if (!File.Exists(serverPath))
                 {
-                    await _logChannel.Writer.WriteAsync($"[Ошибка ОС]: Файл не найден по пути {startInfo.FileName}");
+                    await _logChannel.Writer.WriteAsync($"[Ошибка ОС]: Файл не найден по пути {serverPath}");
                     return;
                 }
 
-                _serverProcess = new Process { StartInfo = startInfo };
-
-                _serverProcess.OutputDataReceived += (sender, args) =>
+                var options = new PtyOptions
                 {
-                    if (args.Data != null)
-                        _ = _logChannel.Writer.WriteAsync(args.Data).AsTask();
-                };
-
-                _serverProcess.ErrorDataReceived += (sender, args) =>
-                {
-                    if (args.Data != null)
-                        _ = _logChannel.Writer.WriteAsync($"[ОШИБКА LINUX SRCDS]: {args.Data}").AsTask();
+                    Name = "GMod Server",
+                    Cols = 120,
+                    Rows = 30,
+                    Cwd = Path.GetDirectoryName(serverPath) ?? ".",
+                    App = serverPath,
+                    CommandLine = new[]
+                    {
+                        "-console",
+                        "-game", "garrysmod",
+                        "+gamemode", "terrortown",
+                        "+host_workshop_collection", "2792454072",
+                        "+map", "ttt_rooftops_2016_v1",
+                        "+maxplayers", "50",
+                        "-port", "27015",
+                        "-steamport", "26900",
+                        "+clientport", "27005"
+                    }
                 };
 
                 try
                 {
-                    _serverProcess.Start();
-                    _serverProcess.BeginOutputReadLine();
-                    _serverProcess.BeginErrorReadLine();
+                    _terminal = await PtyProvider.SpawnAsync(options, CancellationToken.None);
 
-                    _ = _serverProcess.WaitForExitAsync().ContinueWith(async _ =>
+                    _readCts = new CancellationTokenSource();
+                    _ = Task.Run(() => ReadOutputAsync(_terminal.ReaderStream, _readCts.Token));
+
+                    _terminal.ProcessExited += (sender, e) =>
                     {
-                        await _logChannel.Writer.WriteAsync("[Контроллер]: Игровой сервер завершил свою работу.");
-                        await _processLock.WaitAsync();
+                        _ = _logChannel.Writer.WriteAsync("[Контроллер]: Игровой сервер завершил свою работу.");
+                        _processLock.Wait();
                         try
                         {
-                            _serverProcess = null;
+                            _terminal = null;
+                            _readCts?.Cancel();
                         }
                         finally
                         {
                             _processLock.Release();
                         }
-                    });
+                    };
 
-                    await _logChannel.Writer.WriteAsync("[Контроллер]: Процесс srcds_run успешно запущен.");
+                    await _logChannel.Writer.WriteAsync("[Контроллер]: Процесс srcds_run успешно запущен через PTY.");
                 }
                 catch (Exception ex)
                 {
                     await _logChannel.Writer.WriteAsync($"[Ошибка запуска]: {ex.Message}");
-                    _serverProcess = null;
+                    _terminal = null;
                 }
             }
             finally
@@ -93,14 +92,44 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
             }
         }
 
+        private async Task ReadOutputAsync(Stream reader, CancellationToken ct)
+        {
+            var buffer = new byte[4096];
+            try
+            {
+                while (!ct.IsCancellationRequested)
+                {
+                    int bytesRead = await reader.ReadAsync(buffer, 0, buffer.Length, ct);
+                    if (bytesRead == 0) break;
+
+                    string output = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+
+                    // Разбиваем на строки и отправляем в канал
+                    var lines = output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var line in lines)
+                    {
+                        await _logChannel.Writer.WriteAsync(line);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                // Нормальное завершение
+            }
+            catch (Exception ex)
+            {
+                await _logChannel.Writer.WriteAsync($"[Ошибка чтения вывода]: {ex.Message}");
+            }
+        }
+
         public async Task StopServerAsync()
         {
             await _processLock.WaitAsync();
-            Process? process;
+            IPtyConnection? terminal;
             try
             {
-                process = _serverProcess;
-                if (process == null || process.HasExited)
+                terminal = _terminal;
+                if (terminal == null)
                 {
                     await _logChannel.Writer.WriteAsync("[Контроллер]: Сервер уже остановлен.");
                     return;
@@ -115,29 +144,33 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
 
             try
             {
-                process.StandardInput.WriteLine("exit");
-                process.StandardInput.Close();
+                byte[] exitCommand = Encoding.UTF8.GetBytes("exit\r\n");
+                await terminal.WriterStream.WriteAsync(exitCommand, 0, exitCommand.Length);
+                await terminal.WriterStream.FlushAsync();
             }
             catch (Exception ex)
             {
                 await _logChannel.Writer.WriteAsync($"[Ошибка остановки]: {ex.Message}");
             }
 
-            bool exited = await Task.Run(() => process.WaitForExit(10_000));
+            // Ждём до 10 секунд
+            bool exited = await Task.Run(() => terminal.WaitForExit(10_000));
             if (!exited)
             {
                 try
                 {
-                    process.Kill();
+                    terminal.Kill();
                     await _logChannel.Writer.WriteAsync("[Контроллер]: Сервер принудительно завершён.");
                 }
                 catch { }
             }
 
+            _readCts?.Cancel();
+
             await _processLock.WaitAsync();
             try
             {
-                _serverProcess = null;
+                _terminal = null;
             }
             finally
             {
@@ -150,11 +183,11 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
         public async Task SendCommandAsync(string command)
         {
             await _processLock.WaitAsync();
-            Process? process;
+            IPtyConnection? terminal;
             try
             {
-                process = _serverProcess;
-                if (process == null || process.HasExited)
+                terminal = _terminal;
+                if (terminal == null)
                 {
                     await _logChannel.Writer.WriteAsync("[Контроллер]: Невозможно отправить команду. Сервер выключен.");
                     return;
@@ -167,7 +200,9 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
 
             try
             {
-                process.StandardInput.WriteLine(command);
+                byte[] cmdBytes = Encoding.UTF8.GetBytes(command + "\r\n");
+                await terminal.WriterStream.WriteAsync(cmdBytes, 0, cmdBytes.Length);
+                await terminal.WriterStream.FlushAsync();
                 await _logChannel.Writer.WriteAsync($"] {command}");
             }
             catch (Exception ex)
