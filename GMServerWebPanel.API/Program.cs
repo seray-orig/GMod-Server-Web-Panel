@@ -52,7 +52,8 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IPasswordHasher, Argon2Hasher>();
 builder.Services.AddScoped<IFileSystemService, LinuxFileSystemService>();
 builder.Services.AddSingleton<SystemStatsService>();
-
+builder.Services.AddSignalR();
+builder.Services.AddHostedService<LogStreamerService>();
 
 builder.Services.AddCodeFirstGrpcClient<IServerProcessController>(options =>
 {
@@ -60,6 +61,8 @@ builder.Services.AddCodeFirstGrpcClient<IServerProcessController>(options =>
 });
 
 var app = builder.Build();
+
+app.MapHub<LogHub>("/hub/logs");
 
 using (var scope = app.Services.CreateScope())
 {
@@ -84,9 +87,9 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+app.MapControllers();
+
 app.UseAuthentication();
 app.UseAuthorization();
-
-app.MapControllers();
 
 app.Run();
