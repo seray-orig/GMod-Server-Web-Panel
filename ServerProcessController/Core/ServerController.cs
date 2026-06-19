@@ -13,7 +13,7 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
         });
 
         private Process? _serverProcess;
-        private readonly object _processLock = new();
+        private readonly SemaphoreSlim _processLock = new(1, 1); // Async-safe блокировка
 
         private ProcessStartInfo GetStartInfo() => new()
         {
@@ -27,21 +27,22 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
             WorkingDirectory = Path.GetDirectoryName("./mainServer/srcds_run") ?? "."
         };
 
-        public Task StartServerAsync()
+        public async Task StartServerAsync()
         {
-            lock (_processLock)
+            await _processLock.WaitAsync();
+            try
             {
                 if (_serverProcess != null && !_serverProcess.HasExited)
                 {
-                    _logChannel.Writer.TryWrite("[Контроллер]: Сервер уже запущен.");
-                    return Task.CompletedTask;
+                    await _logChannel.Writer.WriteAsync("[Контроллер]: Сервер уже запущен.");
+                    return;
                 }
 
                 var startInfo = GetStartInfo();
                 if (!File.Exists(startInfo.FileName))
                 {
-                    _logChannel.Writer.TryWrite($"[Ошибка ОС]: Файл не найден по пути {startInfo.FileName}");
-                    return Task.CompletedTask;
+                    await _logChannel.Writer.WriteAsync($"[Ошибка ОС]: Файл не найден по пути {startInfo.FileName}");
+                    return;
                 }
 
                 _serverProcess = new Process { StartInfo = startInfo };
@@ -49,13 +50,13 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
                 _serverProcess.OutputDataReceived += (sender, args) =>
                 {
                     if (args.Data != null)
-                        _ = _logChannel.Writer.WriteAsync(args.Data);
+                        _ = _logChannel.Writer.WriteAsync(args.Data).AsTask();
                 };
 
                 _serverProcess.ErrorDataReceived += (sender, args) =>
                 {
                     if (args.Data != null)
-                        _ = _logChannel.Writer.WriteAsync($"[ОШИБКА LINUX SRCDS]: {args.Data}");
+                        _ = _logChannel.Writer.WriteAsync($"[ОШИБКА LINUX SRCDS]: {args.Data}").AsTask();
                 };
 
                 try
@@ -64,28 +65,39 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
                     _serverProcess.BeginOutputReadLine();
                     _serverProcess.BeginErrorReadLine();
 
-                    _ = _serverProcess.WaitForExitAsync().ContinueWith(_ =>
+                    _ = _serverProcess.WaitForExitAsync().ContinueWith(async _ =>
                     {
-                        _ = _logChannel.Writer.WriteAsync("[Контроллер]: Игровой сервер завершил свою работу.");
-                        _serverProcess = null; // Сброс ссылки
+                        await _logChannel.Writer.WriteAsync("[Контроллер]: Игровой сервер завершил свою работу.");
+                        await _processLock.WaitAsync();
+                        try
+                        {
+                            _serverProcess = null;
+                        }
+                        finally
+                        {
+                            _processLock.Release();
+                        }
                     });
 
-                    _ = _logChannel.Writer.WriteAsync("[Контроллер]: Процесс srcds_run успешно запущен.");
+                    await _logChannel.Writer.WriteAsync("[Контроллер]: Процесс srcds_run успешно запущен.");
                 }
                 catch (Exception ex)
                 {
-                    _ = _logChannel.Writer.WriteAsync($"[Ошибка запуска]: {ex.Message}");
+                    await _logChannel.Writer.WriteAsync($"[Ошибка запуска]: {ex.Message}");
                     _serverProcess = null;
                 }
             }
-
-            return Task.CompletedTask;
+            finally
+            {
+                _processLock.Release();
+            }
         }
 
         public async Task StopServerAsync()
         {
+            await _processLock.WaitAsync();
             Process? process;
-            lock (_processLock)
+            try
             {
                 process = _serverProcess;
                 if (process == null || process.HasExited)
@@ -94,20 +106,23 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
                     return;
                 }
             }
+            finally
+            {
+                _processLock.Release();
+            }
 
             await _logChannel.Writer.WriteAsync("[Контроллер]: Отправка команды 'exit'...");
 
             try
             {
                 process.StandardInput.WriteLine("exit");
-                process.StandardInput.Close(); // Важно!
+                process.StandardInput.Close();
             }
             catch (Exception ex)
             {
                 await _logChannel.Writer.WriteAsync($"[Ошибка остановки]: {ex.Message}");
             }
 
-            // Даем 10 секунд на graceful shutdown
             bool exited = await Task.Run(() => process.WaitForExit(10_000));
             if (!exited)
             {
@@ -116,12 +131,17 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
                     process.Kill();
                     await _logChannel.Writer.WriteAsync("[Контроллер]: Сервер принудительно завершён.");
                 }
-                catch { /* ignore */ }
+                catch { }
             }
 
-            lock (_processLock)
+            await _processLock.WaitAsync();
+            try
             {
                 _serverProcess = null;
+            }
+            finally
+            {
+                _processLock.Release();
             }
 
             await _logChannel.Writer.WriteAsync("[Контроллер]: Игровой сервер остановлен.");
@@ -129,8 +149,9 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
 
         public async Task SendCommandAsync(string command)
         {
+            await _processLock.WaitAsync();
             Process? process;
-            lock (_processLock)
+            try
             {
                 process = _serverProcess;
                 if (process == null || process.HasExited)
@@ -138,6 +159,10 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
                     await _logChannel.Writer.WriteAsync("[Контроллер]: Невозможно отправить команду. Сервер выключен.");
                     return;
                 }
+            }
+            finally
+            {
+                _processLock.Release();
             }
 
             try
@@ -156,20 +181,16 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
             var reader = _logChannel.Reader;
             while (await reader.WaitToReadAsync())
             {
-                // Читаем ВСЕ доступные сообщения за один проход
                 while (reader.TryRead(out var line))
                 {
                     yield return line;
                 }
             }
-            // Канал никогда не закрывается, поэтому этот цикл бесконечен.
-            // Но это нормально для long-lived gRPC stream.
         }
 
         public async Task UpdateServerAsync()
         {
             await _logChannel.Writer.WriteAsync("[Контроллер]: Запущено обновление сервера (заглушка).");
-            // TODO: Реализовать SteamCMD
         }
     }
 }
