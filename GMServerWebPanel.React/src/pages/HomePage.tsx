@@ -35,15 +35,12 @@ function HomePage() {
         return response;
     }, [token, logout, navigate]);
 
-    // --- ЭФФЕКТ ДЛЯ REAL-TIME ПУША ЧЕРЕЗ SIGNALR ---
     useEffect(() => {
-        // Настраиваем подключение к нашему хабу
         const connection = new signalR.HubConnectionBuilder()
             .withUrl('/hub/logs', {
-                // Если хаб требует авторизации, можно передать токен:
-                // accessTokenFactory: () => token || ""
+                accessTokenFactory: () => token || ""
             })
-            .withAutomaticReconnect() // Авто-переподключение если пропал интернет
+            .withAutomaticReconnect()
             .build();
 
         // Слушаем событие "ReceiveLog" от бэкенда
@@ -63,7 +60,6 @@ function HomePage() {
             connection.stop();
         };
     }, [token]);
-    // --- ИНТЕРВАЛ БОЛЬШЕ НЕ НУЖЕН ---
 
     const handleSendCommand = async (e: React.FormEvent) => {
         e.preventDefault();

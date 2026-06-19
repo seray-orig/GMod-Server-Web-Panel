@@ -103,13 +103,6 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
             {
                 // Мягко просим Source-сервер закрыться
                 _serverProcess.StandardInput.WriteLine("exit");
-
-                // Ждем 10 секунд. Если не закрылся — убиваем процесс жестко
-                if (!_serverProcess.WaitForExit(10000))
-                {
-                    _logChannel.Writer.TryWrite("[Контроллер]: Сервер проигнорировал команду exit. Принудительное завершение (Kill)...");
-                    _serverProcess.Kill();
-                }
             }
             catch (Exception ex)
             {
