@@ -1,4 +1,3 @@
-using GMServerWebPanel.API.Controllers;
 using GMServerWebPanel.API.Data;
 using GMServerWebPanel.API.Models;
 using GMServerWebPanel.API.Services;
@@ -14,7 +13,7 @@ using System.Text;
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
 
-// Генерация ключа для JWT.
+// Генерация ключа для хеширования JWT токена.
 if (string.IsNullOrEmpty(config["JWTSettings:Key"]))
 {
     // Каждый раз генерит новый, ибо нефиг. Пусть свой придумывают и записывают в appsettings.json

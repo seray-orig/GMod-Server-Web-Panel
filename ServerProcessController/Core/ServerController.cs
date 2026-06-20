@@ -13,16 +13,11 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
             SingleWriter = false
         });
 
+        // Использую пакет Porta.Pty для создания иллюзии терминала.
+        // Обычный перехват ввода / вывода у Process не поддерживается у сервера gmod.
         private IPtyConnection? _terminal;
         private readonly SemaphoreSlim _processLock = new(1, 1);
         private CancellationTokenSource? _readCts;
-
-        // Путь к SteamCMD
-        private const string SteamCmdPath = "/home/garrysmod/.local/share/Steam/steamcmd/steamcmd.sh";
-        // Путь к серверу
-        private const string ServerInstallDir = "/home/garrysmod/mainServer";
-        // App ID GMod сервера
-        private const uint AppId = 4020;
 
         public async Task StartServerAsync()
         {
@@ -35,7 +30,7 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
                     return;
                 }
 
-                var serverPath = Path.Combine(ServerInstallDir, "srcds_run");
+                var serverPath = "/home/garrysmod/mainServer/srcds_run";
 
                 if (!File.Exists(serverPath))
                 {
@@ -61,7 +56,7 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
                     Name = "GMod Server",
                     Cols = 120,
                     Rows = 30,
-                    Cwd = ServerInstallDir,
+                    Cwd = "/home/garrysmod/mainServer",
                     App = serverPath,
                     CommandLine = argsArray
                 };
@@ -139,208 +134,7 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
 
         public async Task UpdateServerAsync()
         {
-            await _processLock.WaitAsync();
-            try
-            {
-                // 1. Останавливаем сервер если запущен
-                if (_terminal != null)
-                {
-                    await _logChannel.Writer.WriteAsync("[Обновление]: Остановка сервера перед обновлением...");
-
-                    try
-                    {
-                        byte[] exitCommand = Encoding.UTF8.GetBytes("exit\r\n");
-                        await _terminal.WriterStream.WriteAsync(exitCommand, 0, exitCommand.Length);
-                        await _terminal.WriterStream.FlushAsync();
-
-                        bool exited = await Task.Run(() => _terminal.WaitForExit(15_000));
-                        if (!exited)
-                        {
-                            _terminal.Kill();
-                            await _logChannel.Writer.WriteAsync("[Обновление]: Сервер принудительно завершён.");
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        await _logChannel.Writer.WriteAsync($"[Обновление] Ошибка остановки: {ex.Message}");
-                    }
-
-                    _readCts?.Cancel();
-                    _terminal = null;
-                    await Task.Delay(2000);
-                }
-
-                // 2. Проверяем SteamCMD
-                if (!File.Exists(SteamCmdPath))
-                {
-                    await _logChannel.Writer.WriteAsync($"[Обновление] Ошибка: SteamCMD не найден по пути {SteamCmdPath}");
-                    return;
-                }
-
-                await _logChannel.Writer.WriteAsync("[Обновление]: Запуск SteamCMD...");
-
-                var steamCmdArgs = new[]
-                {
-                    "+force_install_dir", ServerInstallDir,
-                    "+login", "anonymous",
-                    "+app_update", AppId.ToString(), "validate",
-                    "+quit"
-                };
-
-                IPtyConnection? steamCmdTerminal = null;
-                var updateCompletedTcs = new TaskCompletionSource<bool>();
-                var readCts = new CancellationTokenSource();
-
-                try
-                {
-                    var options = new PtyOptions
-                    {
-                        Name = "SteamCMD",
-                        Cols = 120,
-                        Rows = 30,
-                        Cwd = Path.GetDirectoryName(SteamCmdPath) ?? ".",
-                        App = SteamCmdPath,
-                        CommandLine = steamCmdArgs
-                    };
-
-                    steamCmdTerminal = await PtyProvider.SpawnAsync(options, CancellationToken.None);
-
-                    // Читаем вывод и ищем маркеры завершения
-                    _ = Task.Run(async () =>
-                    {
-                        await ReadSteamCmdOutputAsync(steamCmdTerminal.ReaderStream, readCts.Token, updateCompletedTcs);
-                    });
-
-                    await _logChannel.Writer.WriteAsync("[Обновление]: Ожидание завершения обновления...");
-
-                    // Ждём либо завершения обновления (по маркеру), либо таймаута 30 минут
-                    var timeoutTask = Task.Delay(TimeSpan.FromMinutes(30));
-                    var completedTask = await Task.WhenAny(updateCompletedTcs.Task, timeoutTask);
-
-                    if (completedTask == timeoutTask)
-                    {
-                        steamCmdTerminal.Kill();
-                        readCts.Cancel();
-                        await _logChannel.Writer.WriteAsync("[Обновление] Ошибка: Таймаут 30 минут. SteamCMD не завершился.");
-                        return;
-                    }
-
-                    // Проверяем результат
-                    bool success = await updateCompletedTcs.Task;
-
-                    if (success)
-                    {
-                        await _logChannel.Writer.WriteAsync("[Обновление]: Обновление успешно завершено!");
-                    }
-                    else
-                    {
-                        await _logChannel.Writer.WriteAsync("[Обновление]: Обновление завершено с ошибкой!");
-                        return;
-                    }
-
-                    // Ждём завершения процесса SteamCMD (он должен закрыться сам после +quit)
-                    bool processExited = await Task.Run(() => steamCmdTerminal.WaitForExit(10_000));
-                    if (!processExited)
-                    {
-                        steamCmdTerminal.Kill();
-                    }
-
-                    readCts.Cancel();
-
-                    // 3. Запускаем сервер снова
-                    await _logChannel.Writer.WriteAsync("[Обновление]: Запуск сервера...");
-
-                    _processLock.Release();
-                    await StartServerAsync();
-                    await _processLock.WaitAsync();
-
-                    await _logChannel.Writer.WriteAsync("[Обновление]: Сервер перезапущен после обновления.");
-                }
-                catch (Exception ex)
-                {
-                    await _logChannel.Writer.WriteAsync($"[Обновление] Ошибка: {ex.Message}");
-                }
-                finally
-                {
-                    steamCmdTerminal?.Dispose();
-                    readCts?.Cancel();
-                }
-            }
-            finally
-            {
-                _processLock.Release();
-            }
-        }
-
-        // Специальный метод для парсинга вывода SteamCMD
-        private async Task ReadSteamCmdOutputAsync(Stream reader, CancellationToken ct, TaskCompletionSource<bool> completionSource)
-        {
-            var buffer = new byte[4096];
-            var lineBuffer = new StringBuilder();
-
-            try
-            {
-                while (!ct.IsCancellationRequested)
-                {
-                    int bytesRead = await reader.ReadAsync(buffer, 0, buffer.Length, ct);
-                    if (bytesRead == 0) break;
-
-                    string output = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    lineBuffer.Append(output);
-
-                    string content = lineBuffer.ToString();
-                    int lastNewline = content.LastIndexOfAny(new[] { '\r', '\n' });
-
-                    if (lastNewline >= 0)
-                    {
-                        string fullLines = content.Substring(0, lastNewline);
-                        var lines = fullLines.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
-
-                        foreach (var line in lines)
-                        {
-                            if (!string.IsNullOrWhiteSpace(line))
-                            {
-                                await _logChannel.Writer.WriteAsync(line);
-
-                                // Ищем маркеры завершения
-                                if (line.Contains("Success! App", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    if (!completionSource.Task.IsCompleted)
-                                    {
-                                        completionSource.SetResult(true);
-                                    }
-                                }
-                                else if (line.Contains("ERROR!", StringComparison.OrdinalIgnoreCase) ||
-                                         line.Contains("Error!", StringComparison.OrdinalIgnoreCase))
-                                {
-                                    if (!completionSource.Task.IsCompleted)
-                                    {
-                                        completionSource.SetResult(false);
-                                    }
-                                }
-                            }
-                        }
-
-                        lineBuffer.Clear();
-                        lineBuffer.Append(content.Substring(lastNewline + 1));
-                    }
-                }
-
-                // Если поток завершился без маркеров
-                if (!completionSource.Task.IsCompleted)
-                {
-                    completionSource.SetResult(false);
-                }
-            }
-            catch (OperationCanceledException) { }
-            catch (Exception ex)
-            {
-                await _logChannel.Writer.WriteAsync($"[Ошибка чтения SteamCMD]: {ex.Message}");
-                if (!completionSource.Task.IsCompleted)
-                {
-                    completionSource.SetResult(false);
-                }
-            }
+            // Удалено до лучших времён.
         }
 
         public async Task SendCommandAsync(string command)
@@ -383,55 +177,48 @@ namespace GMServerWebPanel.API.ServerProcessController.Core
             }
         }
 
+        // Без этого Porta.Pty выдаёт дё рган  ный текст.
         private async Task ReadOutputAsync(Stream reader, CancellationToken ct)
         {
             var buffer = new byte[4096];
             var lineBuffer = new StringBuilder();
 
-            try
+            while (!ct.IsCancellationRequested)
             {
-                while (!ct.IsCancellationRequested)
+                int bytesRead = await reader.ReadAsync(buffer, 0, buffer.Length, ct);
+                if (bytesRead == 0) break;
+
+                string output = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+                lineBuffer.Append(output);
+
+                string content = lineBuffer.ToString();
+                int lastNewline = content.LastIndexOfAny(new[] { '\r', '\n' });
+
+                if (lastNewline >= 0)
                 {
-                    int bytesRead = await reader.ReadAsync(buffer, 0, buffer.Length, ct);
-                    if (bytesRead == 0) break;
+                    string fullLines = content.Substring(0, lastNewline);
+                    var lines = fullLines.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
 
-                    string output = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-                    lineBuffer.Append(output);
-
-                    string content = lineBuffer.ToString();
-                    int lastNewline = content.LastIndexOfAny(new[] { '\r', '\n' });
-
-                    if (lastNewline >= 0)
+                    foreach (var line in lines)
                     {
-                        string fullLines = content.Substring(0, lastNewline);
-                        var lines = fullLines.Split(new[] { "\r\n", "\n", "\r" }, StringSplitOptions.RemoveEmptyEntries);
-
-                        foreach (var line in lines)
+                        if (!string.IsNullOrWhiteSpace(line))
                         {
-                            if (!string.IsNullOrWhiteSpace(line))
-                            {
-                                await _logChannel.Writer.WriteAsync(line);
-                            }
+                            await _logChannel.Writer.WriteAsync(line);
                         }
-
-                        lineBuffer.Clear();
-                        lineBuffer.Append(content.Substring(lastNewline + 1));
                     }
-                }
 
-                if (lineBuffer.Length > 0)
-                {
-                    string remaining = lineBuffer.ToString().Trim();
-                    if (!string.IsNullOrWhiteSpace(remaining))
-                    {
-                        await _logChannel.Writer.WriteAsync(remaining);
-                    }
+                    lineBuffer.Clear();
+                    lineBuffer.Append(content.Substring(lastNewline + 1));
                 }
             }
-            catch (OperationCanceledException) { }
-            catch (Exception ex)
+
+            if (lineBuffer.Length > 0)
             {
-                await _logChannel.Writer.WriteAsync($"[Ошибка чтения]: {ex.Message}");
+                string remaining = lineBuffer.ToString().Trim();
+                if (!string.IsNullOrWhiteSpace(remaining))
+                {
+                    await _logChannel.Writer.WriteAsync(remaining);
+                }
             }
         }
     }

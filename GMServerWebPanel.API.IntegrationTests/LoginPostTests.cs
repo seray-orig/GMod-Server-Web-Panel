@@ -1,8 +1,6 @@
 ﻿using GMServerWebPanel.API.Data;
 using GMServerWebPanel.API.Models;
 using GMServerWebPanel.API.Services.Interfaces;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Text;
@@ -64,9 +62,6 @@ public class LoginPostTests(DBWebApplicationFactory factory) : IClassFixture<DBW
         }
 
         // Arrange
-        //var client = _factory.CreateClient();
-
-        // ОТПРАВЛЯЕМ СЫРОЙ ПАРОЛЬ, А НЕ ХЭШ
         var loginData = new { Login = "TestLogin2", Password = "TestPassword2" };
         var json = JsonSerializer.Serialize(loginData);
         var content = new StringContent(json, Encoding.UTF8, "application/json");
